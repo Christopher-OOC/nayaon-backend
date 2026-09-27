@@ -1,0 +1,36 @@
+package com.topnivo.backend.controller;
+
+import com.topnivo.backend.model.entity.Member;
+import com.topnivo.backend.service.CommissionService;
+import com.topnivo.backend.service.MemberService;
+import com.topnivo.backend.util.SecurityUtils;
+import lombok.RequiredArgsConstructor;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+@RequestMapping(value = "/test")
+@RequiredArgsConstructor
+public class TestController {
+
+    private final CommissionService commissionService;
+    private final MemberService memberService;
+
+    @GetMapping(value = "/binary")
+    public String sendBinaryCommission() {
+        String memberId = SecurityUtils.getCurrentMemberId();
+        Member member = memberService.findMemberByMemberId(memberId);
+        commissionService.sendUpLineBinaryCommission(member);
+
+        return "SUCCESS";
+    }
+
+    @GetMapping(value = "/try-rank")
+    public String sendRank() {
+        commissionService.sendRank();
+        return "SUCCESS";
+
+    }
+
+}
