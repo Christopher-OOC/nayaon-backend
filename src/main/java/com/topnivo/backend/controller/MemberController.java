@@ -36,13 +36,9 @@ public class MemberController {
 
     @PostMapping
     public ResponseEntity<?> createCustomer(
-            @RequestBody MemberCreateRequest request,
-            @RequestParam(value = "sponsor", required = false, defaultValue = "") String sponsor,
-            @RequestParam(value = "placer", required = false, defaultValue = "") String placer,
-            @RequestParam(value = "leg", required = false, defaultValue = "") MemberLeg leg
-
+            @RequestBody MemberCreateRequest request
     ) throws MessagingException {
-        Member member = memberService.createCustomer(request, sponsor, placer, leg);
+        Member member = memberService.createCustomer(request);
         MemberResponse memberResponse = memberMapper.memberToResponse(member);
         ApiResponse<MemberResponse> response = new ApiResponse<>(
                 ResponseStatus.CREATED.name(),
@@ -71,7 +67,7 @@ public class MemberController {
         return ResponseEntity.ok(response);
     }
 
-    @PutMapping(value = "", consumes = {MediaType.MULTIPART_FORM_DATA_VALUE})
+    @PutMapping(value = "/profile", consumes = {MediaType.MULTIPART_FORM_DATA_VALUE})
     public ResponseEntity<?> uploadProfilePicture(
             @RequestParam("file") MultipartFile multipartFile
             ) throws IOException {
@@ -88,7 +84,7 @@ public class MemberController {
         return ResponseEntity.ok(response);
     }
 
-    @GetMapping(value = "")
+    @GetMapping(value = "/memberId")
     public ResponseEntity<?> getMemberById()  {
         String memberId = SecurityUtils.getCurrentMemberId();
         Member member = memberService.findMemberByMemberId(memberId);

@@ -60,14 +60,14 @@ public class MemberService {
     private final ProductRepository productRepository;
     private final JwtService jwtService;
 
-    public Member createCustomer(MemberCreateRequest request, String sponsor, String placer, MemberLeg leg) throws MessagingException {
+    public Member createCustomer(MemberCreateRequest request) throws MessagingException {
         validateUsernameAvailability(request.getUsername());
 
         Member newMember = buildNewMember(request);
 
-        if (!sponsor.isEmpty() && !placer.isEmpty() && leg != null) {
-            placeMemberInNetwork(newMember, sponsor, placer, leg);
-        } else if (!sponsor.isEmpty() || !placer.isEmpty() || leg != null) {
+        if (!request.getSponsor().isEmpty()) {
+            placeMemberInNetwork(newMember, request.getSponsor());
+        } else {
             throw new BadRequestException(ErrorMessages.INVALID_PARAMETER_REGISTRATION);
         }
 
@@ -85,7 +85,6 @@ public class MemberService {
         Member newMember = memberMapper.requestToCustomer(request);
         newMember.setMemberId(UUID.randomUUID().toString());
         newMember.setEnabled(true);
-        newMember.getAccountListUsernames().add(request.getUsername());
 
         Role role = roleRepository.findByName("ROLE_" + MemberType.REGULAR_MEMBER.name());
         newMember.setRoles(Collections.singletonList(role));
@@ -93,47 +92,26 @@ public class MemberService {
         return newMember;
     }
 
-    private void placeMemberInNetwork(Member newMember, String sponsorUsername, String placerUsername, MemberLeg leg) {
+    private void placeMemberInNetwork(Member newMember, String sponsorUsername) {
         Member sponsor = findMemberByUsername(sponsorUsername);
-        Member placer = findMemberByUsername(placerUsername);
 
-        validatePlacement(sponsor, placer, leg);
+        automaticPlacementForMmeber(sponsor, newMember);
 
         newMember.setSponsor(sponsor);
-        newMember.setPlacer(placer);
 
-        if (leg == MemberLeg.LEFT) {
-            placer.setLeftLeg(newMember);
-        } else {
-            placer.setRightLeg(newMember);
-        }
-
-        memberRepository.save(placer);
+        memberRepository.save(sponsor);
+        memberRepository.save(newMember);
     }
 
-    private void validatePlacement(Member sponsor, Member placer, MemberLeg leg) {
-        if (sponsor.getId() != placer.getId() && !isPlacerDownlineOfSponsor(sponsor, placer)) {
-            throw new BadRequestException(ErrorMessages.INVALID_INVITE);
-        }
+    private void automaticPlacementForMmeber(Member sponsor, Member newMember) {
 
-        if (isPlacerLegsFull(placer)) {
-            throw new BadRequestException(ErrorMessages.PLACER_LEG_FULL);
-        }
-
-        if (leg == MemberLeg.LEFT && placer.getLeftLeg() != null) {
-            throw new BadRequestException(ErrorMessages.LEFT_LEG_OCCUPIED);
-        }
-
-        if (leg == MemberLeg.RIGHT && placer.getRightLeg() != null) {
-            throw new BadRequestException(ErrorMessages.RIGHT_LEG_OCCUPIED);
-        }
     }
 
     private void setMemberPasswordAndSendEmail(Member member) throws MessagingException {
-//        String password = DEFAULT_PASSWORD;
-        String password = PasswordUtils.generatePassword(8);
+        String password = DEFAULT_PASSWORD;
+//        String password = PasswordUtils.generatePassword(8);
         member.setPassword(passwordEncoder.encode(password));
-        sendWelcomeEmail(member, password);
+        //sendWelcomeEmail(member, password);
     }
 
     private void sendWelcomeEmail(Member member, String password) throws MessagingException {

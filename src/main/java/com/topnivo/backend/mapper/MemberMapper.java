@@ -21,13 +21,9 @@ public class MemberMapper {
     public Member requestToCustomer(MemberCreateRequest request) {
         return Member
                 .builder()
-                .firstName(request.getFirstName())
-                .lastName(request.getLastName())
                 .email(request.getEmail())
                 .username(request.getUsername())
-                .accountListUsernames(new ArrayList<>())
                 .canReceivePayment(true)
-                .phoneNumber(request.getPhoneNumber())
                 .build();
     }
 

@@ -79,5 +79,10 @@ public class ErrorMessages {
     public static final String FLW_OAUTH_TOKEN_FAILED = "Failed to obtain Flutterwave OAuth2 access token.";
     public static final String FLW_INSUFFICIENT_FUNDS_FOR_PAYROLL = "Insufficient Flutterwave wallet balance for payroll disbursement!";
     public static final String FLW_UNKNOWN_ERROR = "Unknown error happens which connecting to Flutterwave!";
+    public static final String NO_SUCH_TOKEN = "No such token!";
+    public static final String TOKEN_ALREADY_EXIST = "Token already exists!";
+    public static final String TOKEN_ALREADY_USED = "Token has already been used!";
+    public static final String CANNOT_USE_OWN_TOKEN = "You cannot use your own token!";
+    public static final String INVALID_TOKEN_PRICE = "Token price must be greater than zero!";
 
 }

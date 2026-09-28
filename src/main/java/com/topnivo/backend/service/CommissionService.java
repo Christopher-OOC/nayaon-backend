@@ -288,12 +288,12 @@ public class CommissionService {
 
         switch (packageName) {
             case FREE, STARTER -> processEntryPackageUnilevel(member, totalBoughtPv);
-            case BASIC -> processBasicPackageUnilevel(member, totalBoughtPv);
-            case BRONZE -> processBronzePackageUnilevel(member, totalBoughtPv);
-            case SILVER -> processSilverPackageUnilevel(member, totalBoughtPv);
-            case GOLD -> processGoldPackageUnilevel(member, totalBoughtPv);
-            case PLATINUM -> processPlatinumPackageUnilevel(member, totalBoughtPv);
-            case DIAMOND -> processDiamondPackageUnilevel(member, totalBoughtPv);
+            case BUILDER -> processBasicPackageUnilevel(member, totalBoughtPv);
+            case ACHIEVER -> processBronzePackageUnilevel(member, totalBoughtPv);
+            case LEADER -> processSilverPackageUnilevel(member, totalBoughtPv);
+            case STAR -> processGoldPackageUnilevel(member, totalBoughtPv);
+            case ELITE -> processPlatinumPackageUnilevel(member, totalBoughtPv);
+            case POWER -> processDiamondPackageUnilevel(member, totalBoughtPv);
         }
     }
 

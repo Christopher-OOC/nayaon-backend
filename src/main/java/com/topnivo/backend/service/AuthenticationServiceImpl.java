@@ -4,6 +4,7 @@ import com.topnivo.backend.model.entity.Member;
 import com.topnivo.backend.repository.MemberRepository;
 import com.topnivo.backend.repository.RoleRepository;
 import com.topnivo.backend.security.AuthenticationService;
+import com.topnivo.backend.security.CustomUserDetails;
 import com.topnivo.backend.security.JwtService;
 import com.topnivo.backend.security.request.AuthenticationRequest;
 import com.topnivo.backend.security.request.RefreshRequest;
@@ -36,7 +37,7 @@ public class AuthenticationServiceImpl implements AuthenticationService {
                 )
         );
 
-        final User user = (User) authentication.getPrincipal();
+        final CustomUserDetails user = (CustomUserDetails) authentication.getPrincipal();
         final String token = this.jwtService.generateAccessToken(user.getUsername());
         final String refreshToken = this.jwtService.generateRefreshToken(user.getUsername());
         final String tokenType = "Bearer";
