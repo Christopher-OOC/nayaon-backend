@@ -1,7 +1,6 @@
 package com.topnivo.backend.controller;
 
 import com.topnivo.backend.mapper.MemberMapper;
-import com.topnivo.backend.model.constant.MemberLeg;
 import com.topnivo.backend.model.entity.Member;
 import com.topnivo.backend.model.entity.Order;
 import com.topnivo.backend.model.request.*;
@@ -84,9 +83,8 @@ public class MemberController {
         return ResponseEntity.ok(response);
     }
 
-    @GetMapping(value = "/memberId")
-    public ResponseEntity<?> getMemberById()  {
-        String memberId = SecurityUtils.getCurrentMemberId();
+    @GetMapping(value = "/{memberId}")
+    public ResponseEntity<?> getMemberById(@PathVariable(value = "memberId") String memberId)  {
         Member member = memberService.findMemberByMemberId(memberId);
         MemberResponse memberResponse = memberMapper.memberToResponse(member);
         ApiResponse<MemberResponse> response = new ApiResponse<>(

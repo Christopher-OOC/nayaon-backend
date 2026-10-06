@@ -60,7 +60,7 @@ public class OrderController {
             @RequestBody OrderRequest request
     ) throws MessagingException {
         String memberId = SecurityUtils.getCurrentMemberId();
-        String paymentReference = request.getPaymentReference();
+        String paymentReference = "";
         Order order;
         if (paymentReference == null) {
             order = orderService.makeOrder(memberId, request);

@@ -38,31 +38,18 @@ public class ProductService {
     private final FileService fileService;
 
     public Product createProduct(ProductCreateRequest request, MultipartFile multipartFile) throws IOException {
-        checkIfAdminIsValid();
 
         Product newProduct = productMapper.requestToProduct(request);
-        Category category = categoryRepository.findById(request.getCategoryId());
-        if (Objects.isNull(category)) {
-            throw new NoSuchResourceException(ErrorMessages.NO_SUCH_CATEGORY);
-        }
 
         if (multipartFile.isEmpty()) {
             throw new BadRequestException(ErrorMessages.NO_IMAGE_IN_PRODUCT);
         }
 
-        newProduct.setCategory(category);
         newProduct.setImage(fileService.fileBtyeToGenerateFileUrl(multipartFile.getBytes()));
 
         if (request.getProductType().equals("discounted")) {
             newProduct.setDiscounted(true);
             newProduct.setDiscount(request.getDiscount());
-
-            Package aPackage = packageRepository.findById(request.getPackageId());
-            if (aPackage == null) {
-                throw new NoSuchResourceException(ErrorMessages.NO_SUCH_PACKAGE);
-            }
-
-            newProduct.setEligiblePackage(aPackage);
         }
 
         return productRepository.save(newProduct);
@@ -72,13 +59,9 @@ public class ProductService {
         checkIfAdminIsValid();
 
         Product product = productRepository.findById(productId).orElse(null);
-        Category category = categoryRepository.findById(request.getCategoryId());
 
         if (Objects.isNull(product)) {
             throw new NoSuchResourceException(ErrorMessages.NO_SUCH_PRODUCT);
-        }
-        if (Objects.isNull(category)) {
-            throw new NoSuchResourceException(ErrorMessages.NO_SUCH_CATEGORY);
         }
 
         if (request.getName() != null) {
@@ -99,9 +82,7 @@ public class ProductService {
         if (request.getPv() > 0) {
             product.setPv(request.getPv());
         }
-        if (!category.getName().equals(product.getCategory().getName())) {
-            product.setCategory(category);
-        }
+
         if (!Objects.isNull(multipartFile)) {
             product.setImage(fileService.fileBtyeToGenerateFileUrl(multipartFile.getBytes()));
         }

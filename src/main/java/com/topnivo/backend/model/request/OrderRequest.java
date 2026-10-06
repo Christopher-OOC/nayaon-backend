@@ -15,25 +15,8 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class OrderRequest {
-    private MemberType memberType;
     private String address;
     private String phoneNumber;
-    private String reference;
-    private String trxref;
-    private String transaction;
 
-    public String getPaymentReference() {
-        if (reference != null && !reference.isBlank()) {
-            return reference;
-        }
-        if (trxref != null && !trxref.isBlank()) {
-            return trxref;
-        }
-        if (transaction != null && !transaction.isBlank()) {
-            return transaction;
-        }
-
-        return null;
-    }
 
 }
