@@ -67,6 +67,16 @@ public class TokenService {
         order.setTotalAmount(aPackage.getPrice() * request.getQuantity());
         order.setOrderId(UUID.randomUUID().toString());
 
+        if (multipartFile != null && !multipartFile.isEmpty()) {
+            try {
+                String imageString = fileService.fileBtyeToGenerateFileUrl(multipartFile.getBytes());
+                order.setPdfText(imageString);
+            }
+            catch (Exception ex) {
+                throw new RuntimeException("File corrupted");
+            }
+        }
+
         order = orderRepository.save(order);
 
         TokenOrderItem orderItem = new TokenOrderItem();
@@ -77,15 +87,9 @@ public class TokenService {
         orderItem.setOriginalId(request.getPackageId() + "");
         orderItem.setQuantity(request.getQuantity());
 
-        if (multipartFile != null && !multipartFile.isEmpty()) {
-            try {
-                String imageString = fileService.fileBtyeToGenerateFileUrl(multipartFile.getBytes());
-                orderItem.setImage(imageString);
-            }
-            catch (Exception ex) {
-                throw new RuntimeException("File corrupted");
-            }
-        }
+        order.getOrderItems().add(orderItem);
+
+        orderRepository.save(order);
 
         Event tokenPurchaseEvent = new Event();
         tokenPurchaseEvent.setAcknowledged(false);
@@ -93,7 +97,6 @@ public class TokenService {
         tokenPurchaseEvent.setEventDate(LocalDateTime.now());
         tokenPurchaseEvent.setType(EventType.TOKEN_PURCHASE);
 
-        orderItemRepository.save(orderItem);
         eventRepository.save(tokenPurchaseEvent);
     }
 

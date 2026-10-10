@@ -59,4 +59,17 @@ public interface OrderRepository extends JpaRepository<Order, String>, PagingAnd
 
     List<Order> findByMemberAndOrderType(Member member, OrderType orderType);
 
+    @Query("""
+    SELECT o
+    FROM Order o
+    ORDER BY
+        CASE
+            WHEN o.orderStatus = com.topnivo.backend.model.constant.OrderStatus.PENDING
+            THEN 0
+            ELSE 1
+        END,
+        o.orderDate DESC
+    """)
+    Page<Order> findAllPendingFirst(Pageable pageable);
+
 }

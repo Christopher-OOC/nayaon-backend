@@ -8,17 +8,23 @@ import com.topnivo.backend.model.request.AdminSettingUpdateRequest;
 import com.topnivo.backend.model.request.MemberUpdateRequest;
 import com.topnivo.backend.model.response.ApiResponse;
 import com.topnivo.backend.model.response.MemberResponse;
+import com.topnivo.backend.model.response.OrderResponse;
 import com.topnivo.backend.model.response.ResponseStatus;
 import com.topnivo.backend.service.AdminSettingService;
 import com.topnivo.backend.service.MemberService;
+import com.topnivo.backend.service.OrderService;
 import com.topnivo.backend.util.SecurityUtils;
 import jakarta.mail.MessagingException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.modelmapper.ModelMapper;
+import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -31,6 +37,8 @@ public class AdminController {
     private final AdminSettingService adminSettingService;
     private final MemberService memberService;
     private final MemberMapper memberMapper;
+    private final ModelMapper modelMapper;
+    private final OrderService orderService;
 
     @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
     @PutMapping(value = "/{memberId}/members")
@@ -160,13 +168,56 @@ public class AdminController {
         return ResponseEntity.ok(response);
     }
 
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN, ADMIN')")
+    @GetMapping(value = "/orders")
+    public ResponseEntity<?> findAdminOrdersPage(
+            @RequestParam(value = "page", required = false, defaultValue = "1") int page,
+            @RequestParam(value = "size", required = false, defaultValue = "5") int size
+    ) {
+        Page<Order> orderPage = orderService.findAdminOrdersPage(page, size);
+
+        Map<String, Integer> metadata = new LinkedHashMap<>();
+        metadata.put("page", page);
+        metadata.put("size", size);
+        metadata.put("number", orderPage.getNumberOfElements());
+        metadata.put("totalPages", orderPage.getTotalPages());
+
+        List<OrderResponse> responseList = new ArrayList<>();
+        orderPage.getContent().forEach(order -> responseList.add(modelMapper.map(order, OrderResponse.class)));
+
+        ApiResponse<List<OrderResponse>> response = new ApiResponse<>(
+                ResponseStatus.SUCCESS.name(),
+                "Orders retrieved successfully!",
+                responseList,
+                metadata
+        );
+
+        return ResponseEntity.ok(response);
+    }
+
+    @PutMapping(value = "/orders/{orderId}")
+    public ResponseEntity<?> changeOrderStatus(
+            @PathVariable(value = "orderId") String orderId
+    ) {
+        Order order = orderService.findOrderById(orderId);
+        OrderResponse orderResponse = modelMapper.map(order, OrderResponse.class);
+        ApiResponse<OrderResponse> response = new ApiResponse<>(
+                ResponseStatus.SUCCESS.name(),
+                "Order retrieved successfully!",
+                orderResponse,
+                null
+        );
+
+        return ResponseEntity.ok(response);
+    }
+
+    //@PreAuthorize("hasAnyRole('SUPER_ADMIN, ADMIN')")
     @PutMapping(value = "/treat-order/{orderId}")
     public ResponseEntity<?> adminTreatOrder(
-            @PathVariable("orderId") String orderId
+            @PathVariable("orderId") String orderId,
+            @RequestParam(value = "status") String status
     ) throws MessagingException {
         String memberId = SecurityUtils.getCurrentMemberId();
-        Member member = memberService.confirmOrderById(memberId, orderId, "CONFIRMED");
+        Member member = memberService.confirmOrderById(memberId, orderId, status);
         MemberResponse memberResponse = memberMapper.memberToResponse(member);
         ApiResponse<MemberResponse> response = new ApiResponse<>(
                 ResponseStatus.ACTIVATED.name(),
@@ -177,6 +228,4 @@ public class AdminController {
 
         return ResponseEntity.ok(response);
     }
-
-
 }

@@ -347,7 +347,16 @@ public class OrderService {
         return orderRepository.findByOrderByOrderDateDesc(pageable);
     }
 
-    public Order findOrderById(String memberId, String orderId) {
+    public Order findOrderById(String orderId) {
+        Order order = orderRepository.findByOrderId(orderId);
+        if (Objects.isNull(order)) {
+            throw new NoSuchResourceException(ErrorMessages.NO_SUCH_ORDER);
+        }
+
+        return order;
+    }
+
+    public Order findOrderByIdAndMemberId(String memberId, String orderId) {
         Member member = memberRepository.findByMemberId(memberId);
         if (Objects.isNull(member)) {
             throw new NoSuchResourceException(ErrorMessages.NO_SUCH_MEMBER);
@@ -492,5 +501,11 @@ public class OrderService {
                 return orderRepository.findByStoreAndOrderStatusAndOrderDateBetweenOrderByOrderDateDesc(store, orderStatus, fromDate, toDate, pageable);
             }
         }
+    }
+
+    public Page<Order> findAdminOrdersPage(int page, int size) {
+        Pageable pageable = PageRequest.of(page - 1, size);
+
+        return orderRepository.findAllPendingFirst(pageable);
     }
 }

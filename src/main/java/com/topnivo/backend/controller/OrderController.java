@@ -1,11 +1,8 @@
 package com.topnivo.backend.controller;
 
 import com.topnivo.backend.mapper.MemberMapper;
-import com.topnivo.backend.model.constant.OrderType;
 import com.topnivo.backend.model.entity.Member;
 import com.topnivo.backend.model.entity.Order;
-import com.topnivo.backend.model.entity.OrderItem;
-import com.topnivo.backend.model.entity.ProductOrderItem;
 import com.topnivo.backend.model.request.OrderRequest;
 import com.topnivo.backend.model.response.*;
 import com.topnivo.backend.model.response.ResponseStatus;
@@ -116,7 +113,7 @@ public class OrderController {
             @PathVariable("orderId") String orderId
     ) {
         String memberId = SecurityUtils.getCurrentMemberId();
-        Order order = orderService.findOrderById(memberId, orderId);
+        Order order = orderService.findOrderByIdAndMemberId(memberId, orderId);
         OrderResponse orderResponse = modelMapper.map(order, OrderResponse.class);
 
         Member store = order.getStore();
