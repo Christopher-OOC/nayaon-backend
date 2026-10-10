@@ -33,6 +33,7 @@ public class Token {
     private LocalDateTime dateUsed;
     @Column(columnDefinition = "DECIMAL(19,2)")
     private double price;
+    private String type;
 
     @Override
     public boolean equals(Object o) {

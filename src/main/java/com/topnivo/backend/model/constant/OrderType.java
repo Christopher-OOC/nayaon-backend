@@ -6,5 +6,6 @@ public enum OrderType {
     UPGRADE_PACKAGE,
     BUY_PACKAGE,
     BUY_PRODUCT,
+    TOKEN_PURCHASE,
 
 }

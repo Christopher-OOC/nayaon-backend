@@ -1,6 +1,9 @@
 package com.topnivo.backend.controller;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.topnivo.backend.model.entity.Member;
+import com.topnivo.backend.model.request.PackageCreateRequest;
 import com.topnivo.backend.model.request.TokenCreateRequest;
 import com.topnivo.backend.model.response.ApiResponse;
 import com.topnivo.backend.model.response.ResponseStatus;
@@ -12,6 +15,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -24,14 +28,16 @@ import java.util.Map;
 public class TokenController {
 
     private final TokenService tokenService;
+    private final ObjectMapper objectMapper;
 
-    @PostMapping
-    public ResponseEntity<?> createToken(@RequestBody TokenCreateRequest request) {
-        TokenResponse token = tokenService.createToken(request);
-        ApiResponse<TokenResponse> response = new ApiResponse<>(
+    @PostMapping(value = "/purchase")
+    public ResponseEntity<?> createToken(@RequestParam(value = "data", required = true) String requestBody, @RequestParam(value = "file", required = false) MultipartFile multipartFile) throws JsonProcessingException {
+        TokenCreateRequest request = objectMapper.readValue(requestBody, TokenCreateRequest.class);
+        tokenService.createToken(request, multipartFile);
+        ApiResponse<String> response = new ApiResponse<>(
                 ResponseStatus.CREATED.name(),
                 "Token created successfully!",
-                token,
+                "Token created successfully!",
                 null
         );
 

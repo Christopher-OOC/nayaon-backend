@@ -11,6 +11,7 @@ import com.topnivo.backend.model.response.MemberResponse;
 import com.topnivo.backend.model.response.ResponseStatus;
 import com.topnivo.backend.service.AdminSettingService;
 import com.topnivo.backend.service.MemberService;
+import com.topnivo.backend.util.SecurityUtils;
 import jakarta.mail.MessagingException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -158,4 +159,24 @@ public class AdminController {
 
         return ResponseEntity.ok(response);
     }
+
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN, ADMIN')")
+    @PutMapping(value = "/treat-order/{orderId}")
+    public ResponseEntity<?> adminTreatOrder(
+            @PathVariable("orderId") String orderId
+    ) throws MessagingException {
+        String memberId = SecurityUtils.getCurrentMemberId();
+        Member member = memberService.confirmOrderById(memberId, orderId, "CONFIRMED");
+        MemberResponse memberResponse = memberMapper.memberToResponse(member);
+        ApiResponse<MemberResponse> response = new ApiResponse<>(
+                ResponseStatus.ACTIVATED.name(),
+                "Order treated successfully!",
+                memberResponse,
+                null
+        );
+
+        return ResponseEntity.ok(response);
+    }
+
+
 }

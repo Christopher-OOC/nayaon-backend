@@ -33,31 +33,12 @@ public class CartService {
     private final ProductRepository productRepository;
 
     public Cart addProductToCart(String memberId, CartItemCreateRequest request) {
-        // Validate and fetch required entities
         Member member = validateAndGetMember(memberId);
         Product product = validateAndGetProduct(request.getProductId());
-        Member store = getStoreIfApplicable(request.getStoreId());
-
-        // Handle new cart item based on user roles and store type
-        UserRoleType userRoleType = determineUserRoleType();
-
-        if (!product.isDiscounted()) {
-            validatePurchasePermissions(userRoleType, store);
-        }
 
         Cart membercart = cartRepository.findByMember(member);
 
         if (membercart != null) {
-            if (product.isDiscounted()) {
-                for (CartItem cartItem : membercart.getCartItems()) {
-                    if (!cartItem.getProduct().isDiscounted()) {
-                        membercart.getCartItems().remove(cartItem);
-                    }
-                }
-
-                membercart = cartRepository.save(membercart);
-            }
-
             Optional<CartItem> existingCartItem = membercart
                     .getCartItems()
                     .stream()
@@ -68,11 +49,11 @@ public class CartService {
                 return handleExistingCartItem(member, product, request.getQuantity(), existingCartItem.get());
             }
             else {
-                return addNewProductToCart(member, store, product, request.getQuantity());
+                return addNewProductToCart(member, product, request.getQuantity());
             }
         }
         else {
-            return addNewProductToCart(member, store, product, request.getQuantity());
+            return addNewProductToCart(member, product, request.getQuantity());
         }
     }
 
@@ -133,40 +114,8 @@ public class CartService {
         return cartRepository.findById(member.getCart().getId());
     }
 
-    private Cart addNewProductToCart(Member member, Member store, Product product, int quantity) {
-        if (store == null) {
-            if (determineUserRoleType() == UserRoleType.PREMIUM_STORE || product.isDiscounted()) {
-                validateProductQuantity(product, quantity);
-                return createCartItem(member, null, product, quantity);
-            }
-            else {
-                throw new BadRequestException(ErrorMessages.INVALID_OPERATION);
-            }
-        }
-        else {
-            // Don't allow to member to add product from different store
-            checkIfProductIsAlreadyInCart(member, store);
-
-            // For store purchases
-            String storeRole = store.getRoles().stream()
-                    .map(Role::getName)
-                    .filter(r -> !r.equals("ROLE_REGULAR_MEMBER"))
-                    .findFirst()
-                    .orElse("ROLE_REGULAR_MEMBER");
-            if ((determineUserRoleType() == UserRoleType.REGULAR_MEMBER && storeRole.equals("ROLE_SERVICE_CENTER")) ||
-                    (determineUserRoleType() == UserRoleType.SERVICE_CENTER && storeRole.equals("ROLE_PREMIUM_STORE"))
-            ) {
-                StoreProduct storeProduct = storeProductRepository.findProductFromStore(store.getMemberId(), product.getId());
-                if (storeProduct == null) {
-                    throw new NoSuchResourceException(ErrorMessages.NO_SUCH_PRODUCT);
-                }
-                validateProductQuantity(storeProduct, quantity);
-
-                return createCartItem(member, store, product, quantity);            }
-            else {
-                throw new BadRequestException(ErrorMessages.INVALID_OPERATION);
-            }
-        }
+    private Cart addNewProductToCart(Member member, Product product, int quantity) {
+        return createCartItem(member, product, quantity);
     }
 
     private void checkIfProductIsAlreadyInCart(Member member, Member store) {
@@ -194,11 +143,10 @@ public class CartService {
         }
     }
 
-    private Cart createCartItem(Member member, Member store, Product product, int quantity) {
+    private Cart createCartItem(Member member, Product product, int quantity) {
         CartItem newCartItem = new CartItem();
         newCartItem.setProduct(product);
         newCartItem.setQuantity(quantity);
-        newCartItem.setStore(store);
 
         if (member.getCart() == null) {
             Cart cart = new Cart();

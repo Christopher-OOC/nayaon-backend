@@ -55,7 +55,6 @@ public class PaymentController {
         String paymentReference = paymentRequest.getPaymentReference();
         double amountPaid = flutterwavePaymentService.checkPaymentValidity(paymentReference);
         OrderRequest orderRequest = OrderRequest.builder()
-                .memberType(paymentRequest.getMemberType())
                 .address(paymentRequest.getAddress())
                 .phoneNumber(paymentRequest.getPhoneNumber())
                 .build();

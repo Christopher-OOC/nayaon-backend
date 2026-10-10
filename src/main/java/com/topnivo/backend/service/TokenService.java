@@ -4,11 +4,14 @@ import com.topnivo.backend.exception.exception.BadRequestException;
 import com.topnivo.backend.exception.exception.ErrorMessages;
 import com.topnivo.backend.exception.exception.NoSuchResourceException;
 import com.topnivo.backend.mapper.TokenMapper;
-import com.topnivo.backend.model.entity.Member;
-import com.topnivo.backend.model.entity.Token;
+import com.topnivo.backend.model.constant.EventType;
+import com.topnivo.backend.model.constant.OrderStatus;
+import com.topnivo.backend.model.constant.OrderType;
+import com.topnivo.backend.model.entity.*;
+import com.topnivo.backend.model.entity.Package;
 import com.topnivo.backend.model.request.TokenCreateRequest;
 import com.topnivo.backend.model.response.TokenResponse;
-import com.topnivo.backend.repository.TokenRepository;
+import com.topnivo.backend.repository.*;
 import com.topnivo.backend.util.SecurityUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -16,11 +19,14 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.Random;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -34,23 +40,61 @@ public class TokenService {
     private final TokenRepository tokenRepository;
     private final TokenMapper tokenMapper;
     private final MemberService memberService;
+    private final FileService fileService;
+    private final OrderRepository orderRepository;
+    private final OrderItemRepository orderItemRepository;
+    private final EventRepository eventRepository;
+    private final PackageRepository packageRepository;
 
-    public TokenResponse createToken(TokenCreateRequest request) {
-
-        if (request.getPrice() <= 0) {
+    @Transactional
+    public void createToken(TokenCreateRequest request, MultipartFile multipartFile) {
+        if (request.getQuantity() <= 0) {
             throw new BadRequestException(ErrorMessages.INVALID_TOKEN_PRICE);
         }
 
-        Member owner = SecurityUtils.getCurrentMember();
-        Token token = Token
-                .builder()
-                .token(generateTokenValue())
-                .owner(owner)
-                .used(false)
-                .price(request.getPrice())
-                .build();
+        Package aPackage = packageRepository.findById(request.getPackageId());
+        if (aPackage == null) {
+            throw new NoSuchResourceException(ErrorMessages.NO_SUCH_PACKAGE);
+        }
 
-        return tokenMapper.tokenToResponse(tokenRepository.save(token));
+        Member owner = SecurityUtils.getCurrentMember();
+
+        Order order = new Order();
+        order.setMember(owner);
+        order.setOrderDate(LocalDateTime.now());
+        order.setOrderStatus(OrderStatus.PENDING);
+        order.setOrderType(OrderType.TOKEN_PURCHASE);
+        order.setTotalAmount(aPackage.getPrice() * request.getQuantity());
+        order.setOrderId(UUID.randomUUID().toString());
+
+        order = orderRepository.save(order);
+
+        TokenOrderItem orderItem = new TokenOrderItem();
+        orderItem.setOrder(order);
+        orderItem.setName("Token Purchase");
+        orderItem.setDescription("You purchase %s units of token for %s per token.".formatted(request.getQuantity(), aPackage.getPrice()));
+        orderItem.setPrice(aPackage.getPrice() * request.getQuantity());
+        orderItem.setOriginalId(request.getPackageId() + "");
+        orderItem.setQuantity(request.getQuantity());
+
+        if (multipartFile != null && !multipartFile.isEmpty()) {
+            try {
+                String imageString = fileService.fileBtyeToGenerateFileUrl(multipartFile.getBytes());
+                orderItem.setImage(imageString);
+            }
+            catch (Exception ex) {
+                throw new RuntimeException("File corrupted");
+            }
+        }
+
+        Event tokenPurchaseEvent = new Event();
+        tokenPurchaseEvent.setAcknowledged(false);
+        tokenPurchaseEvent.setMessage("%s just bought %d token now".formatted(owner.getUsername(), request.getQuantity()));
+        tokenPurchaseEvent.setEventDate(LocalDateTime.now());
+        tokenPurchaseEvent.setType(EventType.TOKEN_PURCHASE);
+
+        orderItemRepository.save(orderItem);
+        eventRepository.save(tokenPurchaseEvent);
     }
 
     public TokenResponse useToken(String tokenValue) {

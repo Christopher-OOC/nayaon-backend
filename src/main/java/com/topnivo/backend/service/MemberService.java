@@ -59,6 +59,7 @@ public class MemberService {
     private final StoreProductRepository storeProductRepository;
     private final ProductRepository productRepository;
     private final JwtService jwtService;
+    private final TokenRepository tokenRepository;
 
     public Member createCustomer(MemberCreateRequest request) throws MessagingException {
         validateUsernameAvailability(request.getUsername());
@@ -424,8 +425,7 @@ public class MemberService {
             } else {
                 returnOrder = upgradePackage(member, store, newPackage, userRoleType);
             }
-        }
-        else {
+        } else {
             throw new BadRequestException(ErrorMessages.INVALID_OPERATION);
         }
 
@@ -761,7 +761,6 @@ public class MemberService {
     }
 
     public Member confirmOrderById(String memberId, String orderId, String status) {
-        Member member = findMemberByMemberId(memberId);
         Order order = orderRepository.findByOrderId(orderId);
         if (order == null) {
             throw new NoSuchResourceException(ErrorMessages.NO_SUCH_ORDER);
@@ -771,217 +770,48 @@ public class MemberService {
             throw new BadRequestException(ErrorMessages.INVALID_TRANSACTION_PARAMETER);
         }
 
-        if (order.getTransaction().getStatus().name().equals("CONFIRMED")) {
-            throw new BadRequestException(ErrorMessages.CANNOT_NO_LONGER_PERFORM_ACTION);
-        }
-
         Member buyer = order.getMember();
-        Member store = order.getStore();
-        UserRoleType storeRoleType = determineUserRoleType(store);
-        Member boughtFromStore = null;
-
-        if (store == null) {
-            if (storeRoleType != UserRoleType.PREMIUM_STORE) {
-                throw new BadRequestException(ErrorMessages.INVALID_OPERATION);
-            }
-        } else {
-            if (store.getMemberId().equals(memberId)) {
-                throw new BadRequestException(ErrorMessages.INVALID_OPERATION);
-            }
-        }
 
         if (status.equals("CONFIRMED")) {
-            if (order.getOrderType() == OrderType.ACTIVATE_PACKAGE ||
-                    order.getOrderType() == OrderType.UPGRADE_PACKAGE ||
-                    order.getOrderType() == OrderType.BUY_PACKAGE
-            ) {
+
+            if (order.getOrderType() == OrderType.TOKEN_PURCHASE) {
                 OrderItem orderItem = order.getOrderItems().get(0);
-                Package newPackage = packageService.findPackageById(Integer.parseInt(orderItem.getOriginalId()));
-                Package oldPackage = buyer.getCurrentPackage();
-                double bv;
-                double pv;
+                Package tokenPackage = packageService.findPackageById(Integer.parseInt(orderItem.getOriginalId()));
 
-                StorePackage storePackage = storePackageRepository.findByStoreAndPac(store, newPackage);
+                List<Token> purchaseTokenList = new ArrayList<>();
 
-                if (storePackage != null) {
-                    boughtFromStore = storePackage.getBoughtFromStore();
+                for (int currentTokenNum = 0; currentTokenNum < orderItem.getQuantity(); currentTokenNum++) {
+                    Token token = new Token();
+                    token.setOwner(buyer);
+                    token.setUsed(false);
+                    token.setPrice(tokenPackage.getPrice());
+                    token.setDateCreated(LocalDateTime.now());
+                    token.setType(tokenPackage.getName());
+                    token.setToken(PasswordUtils.generateNumbers(6));
+
+                    purchaseTokenList.add(token);
                 }
 
-                if (order.getOrderType() == OrderType.ACTIVATE_PACKAGE) {
-                    bv = newPackage.getBv();
-                    pv = newPackage.getPv();
-
-                    buyer.setCurrentPackage(newPackage);
-                    if (pv > 0) {
-                        commissionService.updateSponsorNewRegistrationCount(buyer);
-                        commissionService.sendDirectAndIndirectReferralCommission(buyer, pv);
-                    }
-
-                    if (storeRoleType != UserRoleType.ADMIN) {
-                        if (storePackage != null) {
-                            storePackage.setBoughtQuantity(storePackage.getBoughtQuantity() - 1);
-                            storePackageRepository.save(storePackage);
-                        }
-                    }
-
-                } else if (order.getOrderType() == OrderType.UPGRADE_PACKAGE) {
-                    bv = newPackage.getBv() - oldPackage.getBv();
-                    pv = newPackage.getPv() - oldPackage.getPv();
-
-                    buyer.setCurrentPackage(newPackage);
-                    if (pv > 0) {
-                        commissionService.sendDirectAndIndirectReferralCommission(buyer, pv);
-                    }
-
-                    if (storeRoleType != UserRoleType.ADMIN) {
-                        if (storePackage != null) {
-                            storePackage.setBoughtQuantity(storePackage.getBoughtQuantity() - 1);
-                            storePackageRepository.save(storePackage);
-                        }
-                    }
-                } else {
-                    bv = newPackage.getBv() * orderItem.getQuantity();
-                    pv = newPackage.getPv() * orderItem.getQuantity();
-
-                    StorePackage oldStorePackage = storePackageRepository.findByStoreAndPac(buyer, newPackage);
-                    if (oldStorePackage == null) {
-                        StorePackage newStorePackage = new StorePackage();
-                        newStorePackage.setPac(newPackage);
-                        newStorePackage.setStore(buyer);
-                        newStorePackage.setBoughtQuantity(orderItem.getQuantity());
-                        newStorePackage.setBoughtFromStore(storePackage != null ? storePackage.getStore() : null);
-                        storePackageRepository.save(newStorePackage);
-                    } else {
-                        oldStorePackage.setBoughtQuantity(oldStorePackage.getBoughtQuantity() + orderItem.getQuantity());
-                        storePackageRepository.save(oldStorePackage);
-                    }
-
-                    if (storeRoleType != UserRoleType.ADMIN) {
-                        if (storePackage != null) {
-                            storePackage.setBoughtQuantity(storePackage.getBoughtQuantity() - orderItem.getQuantity());
-                            storePackageRepository.save(storePackage);
-                        }
-                    }
-                }
-
-                if (storeRoleType == UserRoleType.PREMIUM_STORE) {
-                    commissionService.sendPremiumStoreBonus(store, pv);
-                } else if (storeRoleType == UserRoleType.SERVICE_CENTER) {
-                    commissionService.sendServiceCenterBonus(store, boughtFromStore, pv);
-                }
-
-                if (pv > 0) {
-                    buyer.setAccumulatedPv(buyer.getAccumulatedPv() + pv);
-                    commissionService.addBinaryBvAndPvToAllUpLines(buyer, bv, pv);
-                }
-
-
-            } else if (order.getOrderType() == OrderType.BUY_PRODUCT) {
-                List<OrderItem> orderItems = order.getOrderItems();
-                double bv = orderItems.stream().mapToDouble(o -> o.getBv() * o.getQuantity()).sum();
-                double pv = orderItems.stream().mapToDouble(o -> o.getPv() * o.getQuantity()).sum();
-
-                if (storeRoleType == UserRoleType.ADMIN) {
-                    for (OrderItem o : orderItems) {
-                        ProductOrderItem orderItem = (ProductOrderItem) o;
-                        StoreProduct buyerStoreProduct = storeProductRepository.findProductFromStore(buyer.getMemberId(),
-                                orderItem.getOriginalId());
-                        Product product = productRepository.findById(orderItem.getOriginalId()).get();
-
-                        if (buyerStoreProduct == null) {
-                            StoreProduct newStoreProduct = new StoreProduct();
-                            newStoreProduct.setProduct(product);
-                            newStoreProduct.setBoughtQuantity(orderItem.getQuantity());
-                            newStoreProduct.setStore(buyer);
-                            newStoreProduct.setBoughtFromStore(null);
-                            storeProductRepository.save(newStoreProduct);
-                        } else {
-                            buyerStoreProduct.setBoughtQuantity(buyerStoreProduct.getBoughtQuantity() + orderItem.getQuantity());
-                            storeProductRepository.save(buyerStoreProduct);
-                        }
-
-                        product.setAvailableQuantity(product.getAvailableQuantity() - orderItem.getQuantity());
-                        productRepository.save(product);
-                    }
-                } else if (storeRoleType == UserRoleType.PREMIUM_STORE) {
-                    for (OrderItem o : orderItems) {
-                        ProductOrderItem orderItem = (ProductOrderItem) o;
-                        StoreProduct sellerStoreProduct = storeProductRepository.findProductFromStore(orderItem.getSellerId(),
-                                orderItem.getOriginalId());
-                        StoreProduct buyerStoreProduct = storeProductRepository.findProductFromStore(buyer.getMemberId(),
-                                orderItem.getOriginalId());
-
-                        if (buyerStoreProduct == null) {
-                            Product product = productRepository.findById(orderItem.getOriginalId()).get();
-
-                            StoreProduct newStoreProduct = new StoreProduct();
-                            newStoreProduct.setProduct(product);
-                            newStoreProduct.setBoughtQuantity(orderItem.getQuantity());
-                            newStoreProduct.setStore(buyer);
-                            newStoreProduct.setBoughtFromStore(store);
-                            storeProductRepository.save(newStoreProduct);
-                        } else {
-                            buyerStoreProduct.setBoughtQuantity(buyerStoreProduct.getBoughtQuantity() + orderItem.getQuantity());
-                            storeProductRepository.save(buyerStoreProduct);
-                        }
-
-                        if (sellerStoreProduct != null) {
-                            sellerStoreProduct.setBoughtQuantity(sellerStoreProduct.getBoughtQuantity() - orderItem.getQuantity());
-                            storeProductRepository.save(sellerStoreProduct);
-                        }
-                    }
-
-                    commissionService.sendPremiumStoreBonus(store, pv);
-                } else if (storeRoleType == UserRoleType.SERVICE_CENTER) {
-                    for (OrderItem o : orderItems) {
-                        ProductOrderItem orderItem = (ProductOrderItem) o;
-                        StoreProduct sellerStoreProduct = storeProductRepository.findProductFromStore(orderItem.getSellerId(),
-                                orderItem.getOriginalId());
-                        boughtFromStore = sellerStoreProduct.getBoughtFromStore();
-                        sellerStoreProduct.setBoughtQuantity(sellerStoreProduct.getBoughtQuantity() - orderItem.getQuantity());
-                        storeProductRepository.save(sellerStoreProduct);
-                    }
-
-                    // Send pv, bv and uniLevel commission
-                    // 20% to binary, 80% to uni level bonus
-                    double toUpLine = (20 / 100.0) * pv;
-                    double uniLevelPv = pv - toUpLine;
-
-                    if (pv > 0) {
-                        commissionService.addBinaryBvAndPvToAllUpLines(buyer, bv, toUpLine);
-                        commissionService.sendServiceCenterBonus(store, boughtFromStore, pv);
-                        commissionService.sendUniLevelCommission(buyer, uniLevelPv);
-                    }
-                }
-
-                double awaitingWallet = buyer.getAwaitingWallet();
-
-                buyer.setAccumulatedPv(buyer.getAccumulatedPv() + pv);
-                buyer.setAvailableBalance(buyer.getAvailableBalance() + awaitingWallet);
-                buyer.setAwaitingWallet(0.0);
-
-                createTransferTransaction(buyer.getMemberId(), awaitingWallet, String.format("Your awaiting wallet balance of %f has been added to your available balance", awaitingWallet));
+                tokenRepository.saveAll(purchaseTokenList);
             }
+
+
+            double awaitingWallet = buyer.getAwaitingWallet();
+
+            buyer.setAccumulatedPv(buyer.getAccumulatedPv() + 0);
+            buyer.setAvailableBalance(buyer.getAvailableBalance() + awaitingWallet);
+            buyer.setAwaitingWallet(0.0);
+
+            createTransferTransaction(buyer.getMemberId(), awaitingWallet, String.format("Your awaiting wallet balance of %f has been added to your available balance", awaitingWallet));
 
             List<Transaction> transactions = transactionRepository.findByOrderId(orderId);
             transactions.forEach(transaction -> {
                 transaction.setStatus(TransactionStatus.CONFIRMED);
                 transactionRepository.save(transaction);
             });
-
-        } else {
-            TransactionStatus newStatus = TransactionStatus.valueOf(status);
-
-            List<Transaction> transactions = transactionRepository.findByOrderId(orderId);
-            transactions.forEach(transaction -> {
-                transaction.setStatus(newStatus);
-                transactionRepository.save(transaction);
-            });
         }
 
-        memberRepository.save(buyer);
-
-        return memberRepository.save(member);
+        return memberRepository.save(buyer);
     }
 
     private UserRoleType determineUserRoleType() {
@@ -1071,16 +901,23 @@ public class MemberService {
 
         if (memberRole.equals("ROLE_REGULAR_MEMBER")) {
             return activatePackageByAdmin(memberId, packageId, serviceCenter.getMemberId());
-        }
-        else if (memberRole.equals("ROLE_SERVICE_CENTER")) {
+        } else if (memberRole.equals("ROLE_SERVICE_CENTER")) {
             return activatePackageByAdmin(memberId, packageId, premiumStore.getMemberId());
-        }
-        else if (memberRole.equals("ROLE_PREMIUM_STORE")) {
+        } else if (memberRole.equals("ROLE_PREMIUM_STORE")) {
             return activatePackageByAdmin(memberId, packageId, null);
-        }
-        else {
+        } else {
             throw new NoSuchResourceException("Invalid role to purchase package");
         }
+    }
+
+    public Order adminTreatOrder(String orderId) {
+        Order order = orderRepository.findByOrderId(orderId);
+
+        if (order == null) {
+            throw new NoSuchResourceException(ErrorMessages.NO_SUCH_ORDER);
+        }
+
+        return order;
     }
 
     public enum UserRoleType {
@@ -1284,8 +1121,7 @@ public class MemberService {
                     .bankType(request.getBankType())
                     .currency(request.getCurrency())
                     .build();
-        }
-        else {
+        } else {
             accountDetails = member.getAccountDetails();
             if (request.getAccountNumber() != null && !request.getAccountNumber().isEmpty()) {
                 accountDetails.setAccountNumber(request.getAccountNumber());

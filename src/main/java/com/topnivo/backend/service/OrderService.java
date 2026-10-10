@@ -54,8 +54,7 @@ public class OrderService {
         List<CartItem> cartItems = cartItemRepository.findByCartId(member.getCart().getId());
         cartItems.sort(Comparator.comparing(a -> a.getProduct().getId()));
 
-        if (request.getMemberType().equals(MemberType.REGULAR_MEMBER) ||
-                request.getMemberType().equals(MemberType.SERVICE_CENTER)) {
+        if (MemberType.REGULAR_MEMBER.equals(MemberType.REGULAR_MEMBER)) {
             for (CartItem cartItem : cartItems) {
                 if (!cartItem.getProduct().isDiscounted()) {
                     StoreProduct storeProduct = storeProductRepository.findProductFromStore(
@@ -75,7 +74,7 @@ public class OrderService {
                     }
                 }
             }
-        } else if (request.getMemberType().equals(MemberType.PREMIUM_STORE)) {
+        } else if (MemberType.SERVICE_CENTER.equals(MemberType.PREMIUM_STORE)) {
             List<String> productRequestIds = new ArrayList<>(cartItems.stream()
                     .map(cartItem -> cartItem.getProduct().getId())
                     .toList());
@@ -219,8 +218,8 @@ public class OrderService {
             }
         }
 
-        if ((request.getMemberType().equals(MemberType.REGULAR_MEMBER) ||
-                request.getMemberType().equals(MemberType.SERVICE_CENTER)) && !hasDiscounted) {
+        if ((MemberType.REGULAR_MEMBER.equals(MemberType.REGULAR_MEMBER) ||
+                MemberType.REGULAR_MEMBER.equals(MemberType.SERVICE_CENTER)) && !hasDiscounted) {
             for (CartItem cartItem : cartItems) {
                 StoreProduct storeProduct = storeProductRepository.findProductFromStore(
                         cartItem.getStore().getMemberId(),
@@ -240,7 +239,7 @@ public class OrderService {
                 orderItems.add(orderItem);
             }
         }
-        else if (request.getMemberType().equals(MemberType.PREMIUM_STORE) || hasDiscounted) {
+        else if (MemberType.REGULAR_MEMBER.equals(MemberType.PREMIUM_STORE) || hasDiscounted) {
             List<String> productRequestIds = new ArrayList<>(cartItems.stream()
                     .map(cartItem -> cartItem.getProduct().getId())
                     .toList());

@@ -10,5 +10,6 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @Builder
 public class TokenCreateRequest {
-    private double price;
+    private int quantity;
+    private int packageId;
 }

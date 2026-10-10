@@ -287,13 +287,10 @@ public class CommissionService {
         PackageName packageName = PackageName.valueOf(name);
 
         switch (packageName) {
-            case FREE, STARTER -> processEntryPackageUnilevel(member, totalBoughtPv);
-            case BUILDER -> processBasicPackageUnilevel(member, totalBoughtPv);
-            case ACHIEVER -> processBronzePackageUnilevel(member, totalBoughtPv);
-            case LEADER -> processSilverPackageUnilevel(member, totalBoughtPv);
-            case STAR -> processGoldPackageUnilevel(member, totalBoughtPv);
-            case ELITE -> processPlatinumPackageUnilevel(member, totalBoughtPv);
-            case POWER -> processDiamondPackageUnilevel(member, totalBoughtPv);
+            case FREE, MEMBER -> processEntryPackageUnilevel(member, totalBoughtPv);
+            case SILVER -> processBasicPackageUnilevel(member, totalBoughtPv);
+            default -> processBronzePackageUnilevel(member, totalBoughtPv);
+
         }
     }
 
